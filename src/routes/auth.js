@@ -66,6 +66,77 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
+// ─── POST /auth/google ──────────────────────────────────────
+// Login social via Google.
+// O cliente (app) obtém o id_token do Google e envia aqui.
+// No primeiro acesso deve-se informar também o campo 'role'.
+router.post('/google', async (req, res, next) => {
+  try {
+    const { id_token, nonce, role } = req.body;
+
+    if (!id_token) {
+      return res.status(400).json({ error: 'id_token é obrigatório.' });
+    }
+
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: 'google',
+      token: id_token,
+      ...(nonce && { nonce }),
+    });
+
+    if (error) return res.status(401).json({ error: error.message });
+
+    const user = data.user;
+
+    // Detecta primeiro acesso verificando se já existe perfil
+    const [{ data: familyProfile }, { data: companionProfile }] = await Promise.all([
+      supabaseAdmin.from('family_profiles').select('user_id').eq('user_id', user.id).maybeSingle(),
+      supabaseAdmin.from('companion_profiles').select('user_id').eq('user_id', user.id).maybeSingle(),
+    ]);
+
+    const isNewUser = !familyProfile && !companionProfile;
+
+    if (isNewUser) {
+      if (!role || !['family', 'companion'].includes(role)) {
+        return res.status(400).json({
+          error: 'Primeiro acesso via Google: informe o campo role (family ou companion).',
+          is_new_user: true,
+        });
+      }
+
+      const name = user.user_metadata?.full_name || user.user_metadata?.name || null;
+
+      await supabaseAdmin.auth.admin.updateUserById(user.id, {
+        user_metadata: { ...user.user_metadata, role, name },
+      });
+
+      if (role === 'family') {
+        await supabaseAdmin.from('family_profiles').insert({ user_id: user.id });
+      } else {
+        await supabaseAdmin.from('companion_profiles').insert({ user_id: user.id });
+      }
+    }
+
+    const resolvedRole = isNewUser ? role : user.user_metadata?.role;
+
+    res.json({
+      access_token:  data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      expires_in:    data.session.expires_in,
+      is_new_user:   isNewUser,
+      user: {
+        id:         user.id,
+        email:      user.email,
+        name:       user.user_metadata?.full_name || user.user_metadata?.name,
+        role:       resolvedRole,
+        avatar_url: user.user_metadata?.avatar_url || null,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── POST /auth/refresh ─────────────────────────────────────
 router.post('/refresh', async (req, res, next) => {
   try {
