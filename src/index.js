@@ -11,6 +11,8 @@ const requestRoutes      = require('./routes/requests');
 const paymentRoutes      = require('./routes/payments');
 const reviewRoutes       = require('./routes/reviews');
 const messageRoutes      = require('./routes/messages');
+const adminRoutes        = require('./routes/admin');
+const adminAuth          = require('./middleware/adminAuth');
 
 const app = express();
 
@@ -48,6 +50,7 @@ app.use('/requests',   requestRoutes);
 app.use('/payments',   paymentRoutes);
 app.use('/reviews',    reviewRoutes);
 app.use('/messages',   messageRoutes);
+app.use('/admin',      adminAuth, adminRoutes);
 
 // ─── 404 ────────────────────────────────────────────────
 app.use((req, res) => {
