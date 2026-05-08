@@ -15,10 +15,12 @@ async function buildCompanionPayload(companion) {
 
   let profile_photo_signed_url = null;
   if (companion.profile_photo_url) {
-    const { data: signed } = await supabaseAdmin.storage
-      .from('companion-photos')
-      .createSignedUrl(companion.profile_photo_url, 3600);
-    profile_photo_signed_url = signed?.signedUrl || null;
+    try {
+      const { data: signed } = await supabaseAdmin.storage
+        .from('companion-photos')
+        .createSignedUrl(companion.profile_photo_url, 3600);
+      profile_photo_signed_url = signed?.signedUrl || null;
+    } catch (_) {}
   }
 
   const { data: docs } = await supabaseAdmin
@@ -28,10 +30,15 @@ async function buildCompanionPayload(companion) {
 
   const documents = [];
   for (const doc of docs || []) {
-    const { data: signedDoc } = await supabaseAdmin.storage
-      .from('companion-docs')
-      .createSignedUrl(doc.storage_url, 3600);
-    documents.push({ type: doc.type, signed_url: signedDoc?.signedUrl || null });
+    if (!doc.storage_url) continue;
+    try {
+      const { data: signedDoc } = await supabaseAdmin.storage
+        .from('companion-docs')
+        .createSignedUrl(doc.storage_url, 3600);
+      if (signedDoc?.signedUrl) {
+        documents.push({ type: doc.type, signed_url: signedDoc.signedUrl });
+      }
+    } catch (_) {}
   }
 
   return {
