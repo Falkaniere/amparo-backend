@@ -11,16 +11,17 @@ const requestRoutes      = require('./routes/requests');
 const paymentRoutes      = require('./routes/payments');
 const reviewRoutes       = require('./routes/reviews');
 const messageRoutes      = require('./routes/messages');
+const adminRoutes        = require('./routes/admin');
 
 const app = express();
 
 // ─── Segurança ──────────────────────────────────────────
 app.use(helmet());
-app.use(cors({ origin: '*' })); // restringir em produção
+app.use(cors({ origin: '*' }));
 
 // ─── Rate limiting ──────────────────────────────────────
 const limiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minuto
+  windowMs: 60 * 1000,
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
@@ -48,6 +49,7 @@ app.use('/requests',   requestRoutes);
 app.use('/payments',   paymentRoutes);
 app.use('/reviews',    reviewRoutes);
 app.use('/messages',   messageRoutes);
+app.use('/admin',      adminRoutes);
 
 // ─── 404 ────────────────────────────────────────────────
 app.use((req, res) => {
