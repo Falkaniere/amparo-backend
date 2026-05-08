@@ -18,11 +18,11 @@ const app = express();
 
 // ─── Segurança ──────────────────────────────────────────
 app.use(helmet());
-app.use(cors({ origin: '*' })); // restringir em produção
+app.use(cors({ origin: '*' }));
 
 // ─── Rate limiting ──────────────────────────────────────
 const limiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minuto
+  windowMs: 60 * 1000,
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,

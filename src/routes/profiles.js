@@ -25,7 +25,16 @@ router.get('/me', authMiddleware, async (req, res, next) => {
 
     if (error) return res.status(404).json({ error: 'Perfil não encontrado.' });
 
-    res.json({ profile: data, role });
+    const profile = { ...data };
+
+    if (role === 'companion' && profile.profile_photo_url) {
+      const { data: signed } = await supabaseAdmin.storage
+        .from('companion-photos')
+        .createSignedUrl(profile.profile_photo_url, 3600);
+      profile.profile_photo_signed_url = signed?.signedUrl || null;
+    }
+
+    res.json({ profile, role });
   } catch (err) {
     next(err);
   }
@@ -38,8 +47,8 @@ router.put('/me', authMiddleware, async (req, res, next) => {
     const role = user_metadata?.role;
     const table = role === 'family' ? 'family_profiles' : 'companion_profiles';
 
-    const allowedFamily     = ['elder_name', 'elder_notes', 'address', 'city', 'state'];
-    const allowedCompanion  = ['bio', 'hourly_rate', 'radius_km', 'city', 'state', 'years_exp', 'push_token'];
+    const allowedFamily    = ['elder_name', 'elder_notes', 'address', 'city', 'state'];
+    const allowedCompanion = ['bio', 'hourly_rate', 'radius_km', 'city', 'state', 'years_exp', 'push_token'];
     const allowed = role === 'family' ? allowedFamily : allowedCompanion;
 
     const updates = {};
@@ -55,8 +64,47 @@ router.put('/me', authMiddleware, async (req, res, next) => {
       .single();
 
     if (error) return res.status(400).json({ error: error.message });
-
     res.json({ profile: data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── PUT /profile/companion/photo ───────────────────────────
+router.put('/companion/photo', authMiddleware, upload.single('file'), async (req, res, next) => {
+  try {
+    const { id: userId } = req.user;
+    const file = req.file;
+
+    if (!file) return res.status(400).json({ error: 'Arquivo não enviado.' });
+
+    const { data: companion } = await supabase
+      .from('companion_profiles')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!companion) return res.status(404).json({ error: 'Perfil não encontrado.' });
+
+    const ext  = file.originalname.split('.').pop();
+    const path = `photos/${companion.id}/profile_${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('companion-photos')
+      .upload(path, file.buffer, { contentType: file.mimetype, upsert: true });
+
+    if (uploadError) return res.status(500).json({ error: 'Erro no upload da foto.' });
+
+    const { data, error: dbError } = await supabaseAdmin
+      .from('companion_profiles')
+      .update({ profile_photo_url: path })
+      .eq('user_id', userId)
+      .select('profile_photo_url')
+      .single();
+
+    if (dbError) return res.status(400).json({ error: dbError.message });
+
+    res.json({ profile_photo_url: data.profile_photo_url });
   } catch (err) {
     next(err);
   }
@@ -67,7 +115,6 @@ router.put('/companion/availability', authMiddleware, async (req, res, next) => 
   try {
     const { id: userId } = req.user;
     const { slots } = req.body;
-    // slots: [{ day_of_week: 1, start_time: '08:00', end_time: '18:00', is_active: true }]
 
     const { data: companion } = await supabase
       .from('companion_profiles')
@@ -77,14 +124,11 @@ router.put('/companion/availability', authMiddleware, async (req, res, next) => 
 
     if (!companion) return res.status(404).json({ error: 'Perfil de acompanhante não encontrado.' });
 
-    // Remove slots antigos e recria
     await supabaseAdmin.from('availability').delete().eq('companion_id', companion.id);
-
     const newSlots = slots.map(s => ({ ...s, companion_id: companion.id }));
     const { error } = await supabaseAdmin.from('availability').insert(newSlots);
 
     if (error) return res.status(400).json({ error: error.message });
-
     res.json({ message: 'Disponibilidade atualizada.' });
   } catch (err) {
     next(err);
@@ -92,7 +136,6 @@ router.put('/companion/availability', authMiddleware, async (req, res, next) => 
 });
 
 // ─── POST /profile/companion/documents ──────────────────────
-// Upload de documento para Supabase Storage
 router.post('/companion/documents', authMiddleware, upload.single('file'), async (req, res, next) => {
   try {
     const { id: userId } = req.user;
@@ -114,8 +157,7 @@ router.post('/companion/documents', authMiddleware, upload.single('file'), async
 
     if (!companion) return res.status(404).json({ error: 'Perfil não encontrado.' });
 
-    // Upload para Storage (bucket privado)
-    const ext = file.originalname.split('.').pop();
+    const ext  = file.originalname.split('.').pop();
     const path = `documents/${companion.id}/${type}_${Date.now()}.${ext}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
@@ -124,7 +166,6 @@ router.post('/companion/documents', authMiddleware, upload.single('file'), async
 
     if (uploadError) return res.status(500).json({ error: 'Erro no upload do arquivo.' });
 
-    // Salva referência no banco
     const { data: doc, error: dbError } = await supabaseAdmin
       .from('documents')
       .upsert({ companion_id: companion.id, type, storage_url: path }, { onConflict: 'companion_id,type' })
@@ -132,7 +173,6 @@ router.post('/companion/documents', authMiddleware, upload.single('file'), async
       .single();
 
     if (dbError) return res.status(400).json({ error: dbError.message });
-
     res.status(201).json({ document: doc });
   } catch (err) {
     next(err);
@@ -178,7 +218,6 @@ router.put('/companion/photo', authMiddleware, upload.single('file'), async (req
 });
 
 // ─── PUT /profile/companion/online ──────────────────────────
-// Toggle disponível/indisponível
 router.put('/companion/online', authMiddleware, async (req, res, next) => {
   try {
     const { id: userId } = req.user;
@@ -192,7 +231,6 @@ router.put('/companion/online', authMiddleware, async (req, res, next) => {
       .single();
 
     if (error) return res.status(400).json({ error: error.message });
-
     res.json({ is_online: data.is_online });
   } catch (err) {
     next(err);
