@@ -3,6 +3,7 @@ jest.mock('../../utils/supabase', () => ({
     auth: {
       signUp: jest.fn(),
       signInWithPassword: jest.fn(),
+      signInWithIdToken: jest.fn(),
       refreshSession: jest.fn(),
       signInWithOtp: jest.fn(),
       verifyOtp: jest.fn(),
@@ -97,6 +98,40 @@ describe('POST /auth/login', () => {
     expect(res.body).toMatchObject({
       access_token: 'acc',
       user: { email: 'test@test.com', role: 'family' },
+    });
+  });
+});
+
+describe('POST /auth/google', () => {
+  it('returns 400 when idToken is missing', async () => {
+    const res = await request(app).post('/auth/google').send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Parâmetro obrigatório: idToken.');
+  });
+
+  it('returns 401 when Supabase rejects the idToken', async () => {
+    supabase.auth.signInWithIdToken.mockResolvedValue({
+      data: null,
+      error: { message: 'Token inválido.' },
+    });
+    const res = await request(app).post('/auth/google').send({ idToken: 'bad-token' });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Token inválido.');
+  });
+
+  it('returns session and user with null role for new users', async () => {
+    supabase.auth.signInWithIdToken.mockResolvedValue({
+      data: {
+        session: { access_token: 'g-acc', refresh_token: 'g-ref', expires_in: 3600 },
+        user: { id: 'g-user-1', email: 'google@test.com', user_metadata: { full_name: 'Google User' } },
+      },
+      error: null,
+    });
+    const res = await request(app).post('/auth/google').send({ idToken: 'valid-id-token' });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      access_token: 'g-acc',
+      user: { id: 'g-user-1', email: 'google@test.com', name: 'Google User', role: null },
     });
   });
 });
