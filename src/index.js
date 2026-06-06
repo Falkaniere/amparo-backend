@@ -20,6 +20,9 @@ const app = express();
 app.use(helmet());
 app.use(cors({ origin: '*' }));
 
+// Required for express-rate-limit behind Vercel/proxy (reads X-Forwarded-For)
+app.set('trust proxy', 1);
+
 // ─── Rate limiting ──────────────────────────────────────
 const limiter = rateLimit({
   windowMs: 60 * 1000,
@@ -65,10 +68,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ─── Start ──────────────────────────────────────────────
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🌿 Amparo backend rodando na porta ${PORT} [${process.env.NODE_ENV}]`);
-});
+// ─── Start (local only — Vercel imports the module directly) ────────────────
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`🌿 Amparo backend rodando na porta ${PORT} [${process.env.NODE_ENV}]`);
+  });
+}
 
 module.exports = app;
