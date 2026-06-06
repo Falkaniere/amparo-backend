@@ -71,42 +71,22 @@ router.post('/login', async (req, res, next) => {
 });
 
 // ─── POST /auth/google ───────────────────────────────────────────────────────
-// Recebe o authorization code do expo-auth-session (PKCE flow),
-// troca pelo id_token no Google e autentica via Supabase.
-// ─── POST /auth/google ──────────────────────────────────────
+// Receives the idToken from @react-native-google-signin/google-signin.
+// Supabase verifies the token against Google and returns a session.
 router.post('/google', async (req, res, next) => {
   try {
-    const { code, codeVerifier, redirectUri } = req.body;
-    if (!code || !redirectUri)
-      return res
-        .status(400)
-        .json({ error: 'Parâmetros obrigatórios: code e redirectUri.' });
-
-    const params = new URLSearchParams({
-      code,
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: redirectUri,
-      grant_type: 'authorization_code',
-    });
-    if (codeVerifier) params.set('code_verifier', codeVerifier);
-
-    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString(),
-    });
-    const tokenData = await tokenRes.json();
-    if (!tokenData.id_token)
-      return res.status(401).json({ error: 'Falha ao autenticar com Google.' });
+    const { idToken } = req.body;
+    if (!idToken)
+      return res.status(400).json({ error: 'Parâmetro obrigatório: idToken.' });
 
     const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'google',
-      token: tokenData.id_token,
+      token: idToken,
     });
     if (error) return res.status(401).json({ error: error.message });
 
     const { user, session } = data;
+
     const [{ data: fp }, { data: cp }] = await Promise.all([
       supabaseAdmin
         .from('family_profiles')
@@ -136,7 +116,7 @@ router.post('/google', async (req, res, next) => {
   }
 });
 
-// ─── POST /auth/role ────────────────────────────────────────
+// ─── POST /auth/role ─────────────────────────────────────────────────────────
 router.post('/role', authMiddleware, async (req, res, next) => {
   try {
     const { role } = req.body;
