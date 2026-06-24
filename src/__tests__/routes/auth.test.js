@@ -61,6 +61,18 @@ describe('POST /auth/register', () => {
     expect(res.body.message).toContain('Conta criada');
   });
 
+  it('returns 400 when companion registers without a valid CPF', async () => {
+    supabase.auth.signUp.mockResolvedValue({
+      data: { user: { id: 'user-456' } },
+      error: null,
+    });
+    const res = await request(app).post('/auth/register').send({
+      name: 'Bob', email: 'bob@test.com', password: '123456', phone: '11999999999', role: 'companion',
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('CPF inválido.');
+  });
+
   it('returns 201 on successful companion registration', async () => {
     supabase.auth.signUp.mockResolvedValue({
       data: { user: { id: 'user-456' } },
@@ -68,6 +80,7 @@ describe('POST /auth/register', () => {
     });
     const res = await request(app).post('/auth/register').send({
       name: 'Bob', email: 'bob@test.com', password: '123456', phone: '11999999999', role: 'companion',
+      cpf: '12345678901',
     });
     expect(res.status).toBe(201);
     expect(res.body.user).toMatchObject({ id: 'user-456', role: 'companion' });
