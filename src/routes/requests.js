@@ -17,8 +17,12 @@ router.post('/', authMiddleware, async (req, res, next) => {
       destination_address, companion_id, notes
     } = req.body;
 
+    if (!companion_id) {
+      return res.status(400).json({ error: 'Selecione um acompanhante para a solicitação.' });
+    }
+
     // Busca o perfil da família
-    const { data: family } = await supabase
+    const { data: family } = await supabaseAdmin
       .from('family_profiles')
       .select('id')
       .eq('user_id', userId)
@@ -27,7 +31,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
     if (!family) return res.status(403).json({ error: 'Perfil de família não encontrado.' });
 
     // Busca taxa do acompanhante escolhido
-    const { data: companion } = await supabase
+    const { data: companion } = await supabaseAdmin
       .from('companion_profiles')
       .select('id, hourly_rate, push_token, verified, is_online')
       .eq('id', companion_id)

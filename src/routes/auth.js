@@ -6,12 +6,18 @@ const { authMiddleware } = require('../middleware/auth');
 // ─── POST /auth/register ────────────────────────────────────────────────────
 router.post('/register', async (req, res, next) => {
   try {
-    const { name, email, password, phone, role } = req.body;
+    const { name, email, password, phone, role, cpf } = req.body;
 
     if (!['family', 'companion'].includes(role)) {
       return res
         .status(400)
         .json({ error: 'Role deve ser family ou companion.' });
+    }
+
+    const cleanCpf = cpf ? String(cpf).replace(/\D/g, '') : null;
+
+    if (role === 'companion' && (!cleanCpf || cleanCpf.length !== 11)) {
+      return res.status(400).json({ error: 'CPF inválido.' });
     }
 
     const { data, error } = await supabase.auth.signUp({
@@ -27,9 +33,17 @@ router.post('/register', async (req, res, next) => {
     if (role === 'family') {
       await supabaseAdmin.from('family_profiles').insert({ user_id: userId });
     } else {
-      await supabaseAdmin
+      const { error: cpError } = await supabaseAdmin
         .from('companion_profiles')
-        .insert({ user_id: userId });
+        .insert({ user_id: userId, cpf: cleanCpf });
+
+      if (cpError) {
+        // 23505 = unique_violation (CPF já cadastrado)
+        if (cpError.code === '23505') {
+          return res.status(409).json({ error: 'CPF já cadastrado.' });
+        }
+        return res.status(400).json({ error: cpError.message });
+      }
     }
 
     res.status(201).json({
