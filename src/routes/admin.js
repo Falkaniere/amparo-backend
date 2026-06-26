@@ -45,6 +45,7 @@ async function buildCompanionPayload(companion) {
     id: companion.id,
     user_id: companion.user_id,
     status: companion.status,
+    cpf: companion.cpf,
     rejection_reason: companion.rejection_reason,
     created_at: companion.created_at,
     profile_photo_signed_url,
@@ -118,7 +119,7 @@ router.get('/companions', async (req, res, next) => {
 
     const { data: companions, error } = await supabaseAdmin
       .from('companion_profiles')
-      .select('id, user_id, status, rejection_reason, profile_photo_url, created_at')
+      .select('id, user_id, status, cpf, rejection_reason, profile_photo_url, created_at')
       .eq('status', status)
       .order('created_at', { ascending: false });
 
@@ -136,7 +137,7 @@ router.get('/companions/:id', async (req, res, next) => {
   try {
     const { data: companion, error } = await supabaseAdmin
       .from('companion_profiles')
-      .select('id, user_id, status, rejection_reason, profile_photo_url, created_at')
+      .select('id, user_id, status, cpf, rejection_reason, profile_photo_url, created_at')
       .eq('id', req.params.id)
       .single();
 

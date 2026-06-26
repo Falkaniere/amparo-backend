@@ -217,6 +217,37 @@ router.put('/companion/photo', authMiddleware, upload.single('file'), async (req
   }
 });
 
+// ─── PUT /profile/companion/cpf ─────────────────────────────
+router.put('/companion/cpf', authMiddleware, async (req, res, next) => {
+  try {
+    const { id: userId } = req.user;
+    const cleanCpf = req.body.cpf ? String(req.body.cpf).replace(/\D/g, '') : null;
+
+    if (!cleanCpf || cleanCpf.length !== 11) {
+      return res.status(400).json({ error: 'CPF inválido.' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('companion_profiles')
+      .update({ cpf: cleanCpf })
+      .eq('user_id', userId)
+      .select('cpf')
+      .single();
+
+    if (error) {
+      // 23505 = unique_violation (CPF já cadastrado)
+      if (error.code === '23505') {
+        return res.status(409).json({ error: 'CPF já cadastrado.' });
+      }
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json({ cpf: data.cpf });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ─── PUT /profile/companion/online ──────────────────────────
 router.put('/companion/online', authMiddleware, async (req, res, next) => {
   try {
