@@ -11,6 +11,9 @@ qualidade de testes e padronização de imports**.
 **Baseline:** 53 testes passando → **67 testes passando**, ESLint verde, app
 sobe sem erros.
 
+> **Atualização:** a recomendação de maior impacto (propagação do JWT para o
+> Supabase / RLS) foi **implementada** nesta rodada — ver item **1.10**.
+
 ---
 
 ## 1. Correções aplicadas ✅
@@ -84,6 +87,21 @@ sobre recursos de terceiros. Corrigido:
   participação, **com asserção explícita de que a review não é inserida** quando
   o autor não participou (guarda contra falso positivo).
 
+### 1.10 🔴 JWT do usuário propagado ao Supabase (RLS agora funciona)
+Antes, o cliente `supabase` era criado **uma vez** com a *anon key* e **nunca
+recebia o token do usuário**, então as policies baseadas em `auth.uid()` viam
+`NULL` — leituras protegidas por RLS retornavam vazio (ou, com RLS desligado,
+não havia proteção alguma).
+- Adicionado `getUserClient(token)` em `utils/supabase.js`, que cria um cliente
+  com `Authorization: Bearer <token>`.
+- `authMiddleware` agora injeta `req.supabase` (cliente com o JWT do usuário).
+- Todas as leituras/escritas *user-scoped* passaram a usar `req.supabase`
+  (profiles, companions, requests, reviews, payments e a listagem de messages).
+  O `supabaseAdmin` permanece só onde é legítimo: Storage, webhooks, painel
+  admin, `auth.admin` e escritas com verificação de posse em código.
+- Testes atualizados para injetar `req.supabase` e um caso cobre explicitamente
+  a criação do cliente com o token.
+
 ---
 
 ## 2. Recomendações — **não** aplicadas automaticamente ⚠️
@@ -91,32 +109,7 @@ sobre recursos de terceiros. Corrigido:
 Itens de maior impacto que envolvem infraestrutura/DB ou risco de regressão em
 produção. Documentados aqui para decisão do time.
 
-### 2.1 🔴 ALTA — JWT do usuário não é propagado ao Supabase (RLS efetivamente nula nas leituras)
-O cliente `supabase` é criado **uma vez** com a *anon key* e **nunca recebe o
-token do usuário**. Logo, as policies baseadas em `auth.uid()` enxergam
-`auth.uid()` como `NULL`. Consequências:
-- Leituras protegidas por RLS (ex.: `/profile/me`, `/requests/family`,
-  `family_profiles`) tendem a **retornar vazio** — ou, se o RLS estiver
-  desabilitado no banco de produção, a **proteção não existe** e qualquer um
-  lê tudo via anon.
-
-**Correção recomendada:** criar um cliente Supabase **por request**, com o token
-do usuário, e usá-lo nas leituras/escritas que devem respeitar o RLS:
-
-```js
-// utils/supabase.js
-function getUserClient(token) {
-  return createClient(URL, ANON_KEY, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-}
-// middleware/auth.js → req.supabase = getUserClient(token);
-```
-
-Isso exige revisar rotas e mocks de teste; por tocar o comportamento de acesso
-e não poder ser validado contra a infra real aqui, ficou como recomendação.
-
-### 2.2 🔴 ALTA — Webhook do Pagar.me sem verificação de assinatura
+### 2.1 🔴 ALTA — Webhook do Pagar.me sem verificação de assinatura
 `POST /payments/webhook` **confia em qualquer POST**. Um atacante pode enviar
 `{"type":"charge.paid","data":{"id":...}}` e marcar pagamentos como pagos.
 **Recomendado:** validar a assinatura/segredo do webhook (HMAC ou Basic auth
@@ -124,28 +117,28 @@ configurado no painel do Pagar.me) antes de processar. Não implementado por nã
 haver como testar contra o gateway real sem arriscar rejeitar eventos legítimos.
 (A exclusão do rate limiter — item 1.6 — já foi feita.)
 
-### 2.3 🟠 MÉDIA — Bug lógico na RPC `search_companions` (conflito de horário)
+### 2.2 🟠 MÉDIA — Bug lógico na RPC `search_companions` (conflito de horário)
 A cláusula que evita acompanhante com serviço no mesmo horário compara
 `sr.scheduled_at <= (now() + duration)` — usa **`now()`** em vez da **data/hora
 solicitada** (`p_day`/`p_start_time`). Resultado: o filtro de conflito não
 reflete o slot pedido (pode ocultar ou liberar acompanhantes incorretamente).
 Correção pertence ao SQL (`sql/functions.sql` + migration), fora do código Node.
 
-### 2.4 🟠 MÉDIA — Notificações para a família são código morto
+### 2.3 🟠 MÉDIA — Notificações para a família são código morto
 Em `PATCH /requests/:id/status`, `familyToken` é sempre `null` (comentário
 "buscar push_token da família se necessário"), e **`family_profiles` não tem
 coluna `push_token`**. Logo, os eventos `accepted`/`checked_in`/`completed`
 **nunca** notificam a família. Recomendado: adicionar `push_token` a
 `family_profiles` e buscá-lo, ou remover o mapa morto para não induzir a erro.
 
-### 2.5 🟡 BAIXA — Performance: N+1 no painel admin
+### 2.4 🟡 BAIXA — Performance: N+1 no painel admin
 `GET /admin/companions` chama `buildCompanionPayload` por acompanhante, e cada
 chamada faz `getUserById` + `createSignedUrl` (foto) + query de documentos +
 `createSignedUrl` por documento — sequencialmente. Para listas grandes, são
 muitas chamadas. Aceitável para um painel interno; se crescer, considerar
 `auth.admin.listUsers` em lote e assinar URLs em paralelo.
 
-### 2.6 🟡 BAIXA — Outros
+### 2.5 🟡 BAIXA — Outros
 - **CORS `origin: '*'`** — avaliar restringir às origens do app/painel.
 - **`/auth/role`** — insere perfil sem verificar duplicidade nem atualizar
   `user_metadata.role`.
@@ -161,8 +154,8 @@ muitas chamadas. Aceitável para um painel interno; se crescer, considerar
 | Categoria | Aplicado | Recomendado |
 |-----------|:--------:|:-----------:|
 | Aliases de import | ✅ | — |
-| Bugs (dead code, validação, NaN financeiro) | ✅ (1.2, 1.4, 1.7) | 2.3, 2.4 |
-| Segurança / autorização | ✅ (1.3, 1.5, 1.6) | 2.1, 2.2, 2.6 |
-| Clean code / ferramental | ✅ (1.8) | 2.6 |
-| Testes (falso positivo + cobertura) | ✅ (1.9) | 2.6 |
-| Performance | — | 2.5 |
+| Bugs (dead code, validação, NaN financeiro) | ✅ (1.2, 1.4, 1.7) | 2.2, 2.3 |
+| Segurança / autorização | ✅ (1.3, 1.5, 1.6, 1.10) | 2.1, 2.5 |
+| Clean code / ferramental | ✅ (1.8) | 2.5 |
+| Testes (falso positivo + cobertura) | ✅ (1.9) | 2.5 |
+| Performance | — | 2.4 |

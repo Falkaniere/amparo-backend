@@ -42,7 +42,8 @@ Cliente (app RN / painel admin)
 │  Utils        → clientes Supabase              │
 └───────────────┬───────────────┬────────────────┘
                 │               │
-     supabase (anon key)   supabaseAdmin (service role)
+   req.supabase (JWT do usuário)  supabaseAdmin (service role)
+     · respeita RLS               · ignora RLS (webhooks/admin/storage)
                 │               │
                 ▼               ▼
         ┌───────────────────────────────┐
@@ -59,12 +60,16 @@ Cliente (app RN / painel admin)
 
 **Princípios observados:**
 
-- **Dois clientes Supabase** (`src/utils/supabase.js`):
-  - `supabase` — usa a *anon key*, destinado a operações que devem respeitar
-    **RLS** (Row Level Security).
-  - `supabaseAdmin` — usa a *service role key*, **ignora RLS**. Reservado a
-    operações privilegiadas: webhooks, painel admin, Storage, `auth.admin` e
-    escritas em que a autorização é verificada **em código**.
+- **Clientes Supabase** (`src/utils/supabase.js`):
+  - `supabase` — *anon key*, singleton. Usado só para operações **sem usuário
+    logado** (fluxos de `auth.*`: login, registro, refresh, OTP).
+  - `getUserClient(token)` → **`req.supabase`** — cliente criado **por
+    requisição** com o JWT do usuário no header `Authorization`. É este que faz
+    o **RLS** enxergar `auth.uid()`. `authMiddleware` o injeta em `req.supabase`,
+    e todas as leituras/escritas *user-scoped* passam por ele.
+  - `supabaseAdmin` — *service role key*, **ignora RLS**. Reservado a operações
+    privilegiadas: webhooks, painel admin, Storage, `auth.admin` e escritas em
+    que a autorização é verificada **em código** (ex.: posse da solicitação).
 - **Controllers finos**: cada rota valida a entrada, chama o Supabase/serviço e
   formata a resposta. Não há camada de repositório/serviço de domínio separada —
   a "regra de negócio" mora nas rotas e nas *policies*/triggers do banco.
@@ -80,7 +85,7 @@ amparo-backend/
 ├── src/
 │   ├── index.js                 # Entry point: middlewares globais, montagem das rotas, 404 e error handler
 │   ├── middleware/
-│   │   ├── auth.js              # authMiddleware (valida JWT do Supabase) + requireRole(...)
+│   │   ├── auth.js              # authMiddleware (valida JWT, injeta req.user e req.supabase) + requireRole(...)
 │   │   └── adminAuth.js         # Valida o header x-admin-key contra ADMIN_SECRET
 │   ├── routes/
 │   │   ├── auth.js             # /auth/*      — registro, login, Google, OTP, refresh, role
@@ -94,7 +99,7 @@ amparo-backend/
 │   ├── services/
 │   │   └── notifications.js    # Integração com a Expo Push API
 │   ├── utils/
-│   │   └── supabase.js         # Cria e exporta os clientes supabase / supabaseAdmin
+│   │   └── supabase.js         # Clientes supabase (anon) / supabaseAdmin (service role) / getUserClient(token)
 │   └── __tests__/              # Testes unitários (Jest + Supertest), espelham a árvore de src/
 │       ├── health.test.js
 │       ├── middleware/         # auth.test.js, adminAuth.test.js

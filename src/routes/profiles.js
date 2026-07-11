@@ -1,7 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const multer  = require('multer');
-const { supabase, supabaseAdmin } = require('#utils/supabase');
+const { supabaseAdmin } = require('#utils/supabase');
 const { authMiddleware } = require('#middleware/auth');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -17,7 +17,7 @@ router.get('/me', authMiddleware, async (req, res, next) => {
       ? '*, companion_skills(*), availability(*), documents(*)'
       : '*';
 
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from(table)
       .select(select)
       .eq('user_id', userId)
@@ -56,7 +56,7 @@ router.put('/me', authMiddleware, async (req, res, next) => {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from(table)
       .update(updates)
       .eq('user_id', userId)
@@ -78,7 +78,7 @@ router.put('/companion/photo', authMiddleware, upload.single('file'), async (req
 
     if (!file) return res.status(400).json({ error: 'Arquivo não enviado.' });
 
-    const { data: companion } = await supabase
+    const { data: companion } = await req.supabase
       .from('companion_profiles')
       .select('id')
       .eq('user_id', userId)
@@ -116,7 +116,7 @@ router.put('/companion/availability', authMiddleware, async (req, res, next) => 
     const { id: userId } = req.user;
     const { slots } = req.body;
 
-    const { data: companion } = await supabase
+    const { data: companion } = await req.supabase
       .from('companion_profiles')
       .select('id')
       .eq('user_id', userId)
@@ -149,7 +149,7 @@ router.post('/companion/documents', authMiddleware, upload.single('file'), async
       return res.status(400).json({ error: 'Tipo de documento inválido.' });
     }
 
-    const { data: companion } = await supabase
+    const { data: companion } = await req.supabase
       .from('companion_profiles')
       .select('id')
       .eq('user_id', userId)
@@ -216,7 +216,7 @@ router.put('/companion/online', authMiddleware, async (req, res, next) => {
     const { id: userId } = req.user;
     const { is_online } = req.body;
 
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('companion_profiles')
       .update({ is_online })
       .eq('user_id', userId)

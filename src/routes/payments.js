@@ -1,7 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const axios   = require('axios');
-const { supabase, supabaseAdmin } = require('#utils/supabase');
+const { supabaseAdmin } = require('#utils/supabase');
 const { authMiddleware } = require('#middleware/auth');
 const { sendPushNotification } = require('#services/notifications');
 
@@ -139,7 +139,7 @@ router.post('/webhook', async (req, res, next) => {
 // ─── GET /payments/:id/status ───────────────────────────────
 router.get('/:id/status', authMiddleware, async (req, res, next) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('payments')
       .select('id, status, method, amount, paid_at, pix_qr_code_url, pix_expires_at')
       .eq('id', req.params.id)

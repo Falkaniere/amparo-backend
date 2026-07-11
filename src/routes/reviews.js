@@ -1,6 +1,6 @@
 const express = require('express');
 const router  = express.Router();
-const { supabase, supabaseAdmin } = require('#utils/supabase');
+const { supabaseAdmin } = require('#utils/supabase');
 const { authMiddleware } = require('#middleware/auth');
 
 // ─── POST /reviews ──────────────────────────────────────────
@@ -18,7 +18,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
     }
 
     // Valida que o serviço está concluído e que o autor participou dele
-    const { data: request } = await supabase
+    const { data: request } = await req.supabase
       .from('service_requests')
       .select('status, family_profiles(user_id), companion_profiles(user_id)')
       .eq('id', request_id)

@@ -1,6 +1,6 @@
 const express = require('express');
 const router  = express.Router();
-const { supabase, supabaseAdmin } = require('#utils/supabase');
+const { supabaseAdmin } = require('#utils/supabase');
 const { authMiddleware } = require('#middleware/auth');
 const { sendPushNotification } = require('#services/notifications');
 
@@ -110,10 +110,10 @@ router.get('/family', authMiddleware, async (req, res, next) => {
   try {
     const { id: userId } = req.user;
 
-    const { data: family } = await supabase
+    const { data: family } = await req.supabase
       .from('family_profiles').select('id').eq('user_id', userId).single();
 
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('service_requests')
       .select('*, companion_profiles(id, user_id, avg_rating, total_services)')
       .eq('family_id', family.id)
@@ -133,10 +133,10 @@ router.get('/companion', authMiddleware, async (req, res, next) => {
   try {
     const { id: userId } = req.user;
 
-    const { data: companion } = await supabase
+    const { data: companion } = await req.supabase
       .from('companion_profiles').select('id').eq('user_id', userId).single();
 
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('service_requests')
       .select('*, family_profiles(id, elder_name)')
       .eq('companion_id', companion.id)
@@ -153,7 +153,7 @@ router.get('/companion', authMiddleware, async (req, res, next) => {
 // ─── GET /requests/:id ──────────────────────────────────────
 router.get('/:id', authMiddleware, async (req, res, next) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('service_requests')
       .select('*, family_profiles(*), companion_profiles(*)')
       .eq('id', req.params.id)
@@ -174,7 +174,7 @@ router.patch('/:id/status', authMiddleware, async (req, res, next) => {
     const { id: userId } = req.user;
     const { status, cancel_reason } = req.body;
 
-    const { data: request } = await supabase
+    const { data: request } = await req.supabase
       .from('service_requests')
       .select('*, family_profiles(user_id), companion_profiles(user_id, push_token)')
       .eq('id', req.params.id)
@@ -244,7 +244,7 @@ router.post('/:id/location', authMiddleware, async (req, res, next) => {
     const { id: userId } = req.user;
     const { lat, lng } = req.body;
 
-    const { data: companion } = await supabase
+    const { data: companion } = await req.supabase
       .from('companion_profiles').select('id').eq('user_id', userId).single();
 
     await supabaseAdmin.from('location_updates').insert({

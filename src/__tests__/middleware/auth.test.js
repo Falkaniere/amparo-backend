@@ -4,9 +4,10 @@ jest.mock('#utils/supabase', () => ({
       getUser: jest.fn(),
     },
   },
+  getUserClient: jest.fn(() => ({ from: jest.fn() })),
 }));
 
-const { supabase } = require('#utils/supabase');
+const { supabase, getUserClient } = require('#utils/supabase');
 const { authMiddleware, requireRole } = require('#middleware/auth');
 
 function makeRes() {
@@ -58,6 +59,9 @@ describe('authMiddleware', () => {
     await authMiddleware(req, res, next);
     expect(req.user).toEqual(mockUser);
     expect(req.token).toBe('valid-token');
+    // Cliente com o JWT do usuário é criado e injetado para respeitar o RLS.
+    expect(getUserClient).toHaveBeenCalledWith('valid-token');
+    expect(req.supabase).toBeDefined();
     expect(next).toHaveBeenCalled();
   });
 });

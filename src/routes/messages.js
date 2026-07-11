@@ -1,6 +1,6 @@
 const express = require('express');
 const router  = express.Router();
-const { supabase, supabaseAdmin } = require('#utils/supabase');
+const { supabaseAdmin } = require('#utils/supabase');
 const { authMiddleware } = require('#middleware/auth');
 
 // Verifica se o usuário é participante (família ou acompanhante) do serviço.
@@ -25,7 +25,7 @@ router.get('/:request_id', authMiddleware, async (req, res, next) => {
       return res.status(403).json({ error: 'Acesso negado a esta conversa.' });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('messages')
       .select('*')
       .eq('request_id', req.params.request_id)

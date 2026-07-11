@@ -11,6 +11,7 @@ jest.mock('#utils/supabase', () => ({
 jest.mock('#middleware/auth', () => ({
   authMiddleware: (req, _res, next) => {
     req.user = { id: 'user-123' };
+    req.supabase = require('#utils/supabase').supabase;
     next();
   },
   requireRole: () => (_req, _res, next) => next(),

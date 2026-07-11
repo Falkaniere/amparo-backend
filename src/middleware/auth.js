@@ -1,4 +1,4 @@
-const { supabase } = require('#utils/supabase');
+const { supabase, getUserClient } = require('#utils/supabase');
 
 // Valida o JWT do Supabase e injeta req.user
 async function authMiddleware(req, res, next) {
@@ -18,6 +18,8 @@ async function authMiddleware(req, res, next) {
 
   req.user = data.user;
   req.token = token;
+  // Cliente Supabase com o token do usuário → RLS por auth.uid()
+  req.supabase = getUserClient(token);
   next();
 }
 

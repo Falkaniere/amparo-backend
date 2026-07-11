@@ -1,6 +1,5 @@
 const express = require('express');
 const router  = express.Router();
-const { supabase } = require('#utils/supabase');
 const { authMiddleware } = require('#middleware/auth');
 
 // ─── GET /companions/available ──────────────────────────────
@@ -14,7 +13,7 @@ router.get('/available', authMiddleware, async (req, res, next) => {
 
     const dayOfWeek = new Date(date).getDay();
 
-    const { data, error } = await supabase.rpc('search_companions', {
+    const { data, error } = await req.supabase.rpc('search_companions', {
       p_lat:        parseFloat(lat),
       p_lng:        parseFloat(lng),
       p_day:        dayOfWeek,
@@ -32,7 +31,7 @@ router.get('/available', authMiddleware, async (req, res, next) => {
 // ─── GET /companions/:id ────────────────────────────────────
 router.get('/:id', authMiddleware, async (req, res, next) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await req.supabase
       .from('companion_profiles')
       .select('*, companion_skills(*), availability(*), documents(type, verified_at)')
       .eq('id', req.params.id)
@@ -41,7 +40,7 @@ router.get('/:id', authMiddleware, async (req, res, next) => {
 
     if (error || !data) return res.status(404).json({ error: 'Acompanhante não encontrado.' });
 
-    const { data: reviews } = await supabase
+    const { data: reviews } = await req.supabase
       .from('reviews')
       .select('score, tags, comment, created_at, reviewer_id')
       .eq('reviewee_id', data.user_id)
