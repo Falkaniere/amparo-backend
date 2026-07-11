@@ -1,9 +1,9 @@
 const express = require('express');
 const router  = express.Router();
 const axios   = require('axios');
-const { supabase, supabaseAdmin } = require('../utils/supabase');
-const { authMiddleware } = require('../middleware/auth');
-const { sendPushNotification } = require('../services/notifications');
+const { supabase, supabaseAdmin } = require('#utils/supabase');
+const { authMiddleware } = require('#middleware/auth');
+const { sendPushNotification } = require('#services/notifications');
 
 const PAGARME_URL = 'https://api.pagar.me/core/v5';
 const pagarmeAuth = () => ({
@@ -18,13 +18,19 @@ router.post('/create', authMiddleware, async (req, res, next) => {
   try {
     const { request_id, method } = req.body; // method: 'pix' | 'credit_card'
 
-    const { data: request } = await supabase
+    const { data: request } = await supabaseAdmin
       .from('service_requests')
       .select('*, family_profiles(user_id), companion_profiles(pagarme_recipient_id)')
       .eq('id', request_id)
       .single();
 
     if (!request) return res.status(404).json({ error: 'Solicitação não encontrada.' });
+
+    // Apenas a família dona da solicitação pode iniciar o pagamento.
+    if (request.family_profiles?.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Acesso negado a esta solicitação.' });
+    }
+
     if (request.status !== 'pending') return res.status(400).json({ error: 'Solicitação não está pendente.' });
 
     const amountCents = Math.round(request.total_amount * 100);

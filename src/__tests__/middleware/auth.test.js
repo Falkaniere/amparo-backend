@@ -1,4 +1,4 @@
-jest.mock('../../utils/supabase', () => ({
+jest.mock('#utils/supabase', () => ({
   supabase: {
     auth: {
       getUser: jest.fn(),
@@ -6,8 +6,8 @@ jest.mock('../../utils/supabase', () => ({
   },
 }));
 
-const { supabase } = require('../../utils/supabase');
-const { authMiddleware, requireRole } = require('../../middleware/auth');
+const { supabase } = require('#utils/supabase');
+const { authMiddleware, requireRole } = require('#middleware/auth');
 
 function makeRes() {
   const res = {};

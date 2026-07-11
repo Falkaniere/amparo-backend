@@ -1,12 +1,12 @@
 const express = require('express');
 const router  = express.Router();
-const { supabase } = require('../utils/supabase');
-const { authMiddleware } = require('../middleware/auth');
+const { supabase } = require('#utils/supabase');
+const { authMiddleware } = require('#middleware/auth');
 
 // ─── GET /companions/available ──────────────────────────────
 router.get('/available', authMiddleware, async (req, res, next) => {
   try {
-    const { lat, lng, date, start_time, duration_hours, type } = req.query;
+    const { lat, lng, date, start_time, duration_hours } = req.query;
 
     if (!lat || !lng || !date || !start_time) {
       return res.status(400).json({ error: 'lat, lng, date e start_time são obrigatórios.' });

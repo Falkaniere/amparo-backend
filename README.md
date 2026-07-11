@@ -2,6 +2,10 @@
 
 API REST para o app Amparo. Node.js + Express + Supabase.
 
+> 📚 **Documentação técnica:** [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md)
+> (arquitetura, pastas, APIs detalhadas e fluxo ponta a ponta) ·
+> [`docs/AUDITORIA.md`](docs/AUDITORIA.md) (relatório de auditoria e recomendações).
+
 ## Stack
 
 - **Runtime**: Node.js 18+
@@ -101,6 +105,9 @@ sql/
 | POST | /reviews | ✓ | Avaliar serviço |
 | GET | /messages/:request_id | ✓ | Histórico chat |
 | POST | /messages | ✓ | Enviar mensagem |
+| GET | /admin/companions | x-admin-key | Moderação: lista por status |
+| POST | /admin/companions/:id/approve | x-admin-key | Aprovar acompanhante |
+| POST | /admin/companions/:id/reject | x-admin-key | Reprovar acompanhante |
 
 ---
 

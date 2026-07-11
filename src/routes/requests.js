@@ -1,8 +1,8 @@
 const express = require('express');
 const router  = express.Router();
-const { supabase, supabaseAdmin } = require('../utils/supabase');
-const { authMiddleware, requireRole } = require('../middleware/auth');
-const { sendPushNotification } = require('../services/notifications');
+const { supabase, supabaseAdmin } = require('#utils/supabase');
+const { authMiddleware } = require('#middleware/auth');
+const { sendPushNotification } = require('#services/notifications');
 
 const FEE = parseFloat(process.env.PLATFORM_FEE_PERCENT || 10) / 100;
 
@@ -19,6 +19,24 @@ router.post('/', authMiddleware, async (req, res, next) => {
 
     if (!companion_id) {
       return res.status(400).json({ error: 'Selecione um acompanhante para a solicitação.' });
+    }
+
+    const validTypes = ['medical', 'errand', 'walk', 'other'];
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({ error: 'Tipo de serviço inválido.' });
+    }
+
+    if (!scheduled_at || Number.isNaN(Date.parse(scheduled_at))) {
+      return res.status(400).json({ error: 'Data/hora do agendamento inválida.' });
+    }
+
+    if (!origin_address) {
+      return res.status(400).json({ error: 'Endereço de origem é obrigatório.' });
+    }
+
+    const durationHours = Number(duration_hours);
+    if (!Number.isFinite(durationHours) || durationHours <= 0) {
+      return res.status(400).json({ error: 'Duração (em horas) inválida.' });
     }
 
     // Busca o perfil da família
@@ -41,7 +59,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
     if (!companion.verified) return res.status(400).json({ error: 'Acompanhante não verificado.' });
 
     // Cálculo financeiro
-    const service_amount  = parseFloat((companion.hourly_rate * duration_hours).toFixed(2));
+    const service_amount  = parseFloat((companion.hourly_rate * durationHours).toFixed(2));
     const platform_fee    = parseFloat((service_amount * FEE).toFixed(2));
     const total_amount    = parseFloat((service_amount + platform_fee).toFixed(2));
     const companion_amount = parseFloat((service_amount * (1 - FEE)).toFixed(2));
@@ -53,7 +71,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
         companion_id: companion.id,
         type,
         scheduled_at,
-        duration_hours,
+        duration_hours: durationHours,
         origin_address,
         origin_lat,
         origin_lng,

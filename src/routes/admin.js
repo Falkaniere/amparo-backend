@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { supabaseAdmin } = require('../utils/supabase');
+const { supabaseAdmin } = require('#utils/supabase');
 
 async function buildCompanionPayload(companion) {
   let userInfo = { name: null, email: null, phone: null };
@@ -11,7 +11,7 @@ async function buildCompanionPayload(companion) {
       userInfo.phone = data.user.phone;
       userInfo.name = data.user.user_metadata?.full_name || data.user.user_metadata?.name || null;
     }
-  } catch (_) {}
+  } catch { /* campo opcional: ignora falha e segue */ }
 
   let profile_photo_signed_url = null;
   if (companion.profile_photo_url) {
@@ -20,7 +20,7 @@ async function buildCompanionPayload(companion) {
         .from('companion-photos')
         .createSignedUrl(companion.profile_photo_url, 3600);
       profile_photo_signed_url = signed?.signedUrl || null;
-    } catch (_) {}
+    } catch { /* campo opcional: ignora falha e segue */ }
   }
 
   const { data: docs } = await supabaseAdmin
@@ -38,7 +38,7 @@ async function buildCompanionPayload(companion) {
       if (signedDoc?.signedUrl) {
         documents.push({ type: doc.type, signed_url: signedDoc.signedUrl });
       }
-    } catch (_) {}
+    } catch { /* campo opcional: ignora falha e segue */ }
   }
 
   return {
@@ -53,60 +53,6 @@ async function buildCompanionPayload(companion) {
     ...userInfo,
   };
 }
-
-// GET /admin/debug — diagnóstico temporário
-router.get('/debug', async (req, res) => {
-  const steps = [];
-
-  // 1. Query sem filtro de status
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('companion_profiles')
-      .select('id, user_id, status')
-      .limit(1);
-    steps.push({ step: 'query_companion_profiles', ok: !error, error: error?.message, count: data?.length });
-  } catch (e) {
-    steps.push({ step: 'query_companion_profiles', ok: false, error: e.message });
-  }
-
-  // 2. Query com filtro de status
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('companion_profiles')
-      .select('id')
-      .eq('status', 'pending')
-      .limit(1);
-    steps.push({ step: 'query_status_pending', ok: !error, error: error?.message, count: data?.length });
-  } catch (e) {
-    steps.push({ step: 'query_status_pending', ok: false, error: e.message });
-  }
-
-  // 3. Testar Storage bucket companion-photos
-  try {
-    const { data, error } = await supabaseAdmin.storage.from('companion-photos').list('', { limit: 1 });
-    steps.push({ step: 'storage_companion_photos', ok: !error, error: error?.message });
-  } catch (e) {
-    steps.push({ step: 'storage_companion_photos', ok: false, error: e.message });
-  }
-
-  // 4. Testar Storage bucket companion-docs
-  try {
-    const { data, error } = await supabaseAdmin.storage.from('companion-docs').list('', { limit: 1 });
-    steps.push({ step: 'storage_companion_docs', ok: !error, error: error?.message });
-  } catch (e) {
-    steps.push({ step: 'storage_companion_docs', ok: false, error: e.message });
-  }
-
-  // 5. Testar auth admin
-  try {
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 });
-    steps.push({ step: 'auth_admin_listUsers', ok: !error, error: error?.message });
-  } catch (e) {
-    steps.push({ step: 'auth_admin_listUsers', ok: false, error: e.message });
-  }
-
-  res.json({ steps });
-});
 
 // GET /admin/companions?status=pending|rejected|approved
 router.get('/companions', async (req, res, next) => {

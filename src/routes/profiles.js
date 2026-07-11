@@ -1,8 +1,8 @@
 const express = require('express');
 const router  = express.Router();
 const multer  = require('multer');
-const { supabase, supabaseAdmin } = require('../utils/supabase');
-const { authMiddleware } = require('../middleware/auth');
+const { supabase, supabaseAdmin } = require('#utils/supabase');
+const { authMiddleware } = require('#middleware/auth');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -86,7 +86,7 @@ router.put('/companion/photo', authMiddleware, upload.single('file'), async (req
 
     if (!companion) return res.status(404).json({ error: 'Perfil não encontrado.' });
 
-    const ext  = file.originalname.split('.').pop();
+    const ext  = file.originalname.split('.').pop() || 'jpg';
     const path = `photos/${companion.id}/profile_${Date.now()}.${ext}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
@@ -174,44 +174,6 @@ router.post('/companion/documents', authMiddleware, upload.single('file'), async
 
     if (dbError) return res.status(400).json({ error: dbError.message });
     res.status(201).json({ document: doc });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// ─── PUT /profile/companion/photo ───────────────────────────
-router.put('/companion/photo', authMiddleware, upload.single('file'), async (req, res, next) => {
-  try {
-    const { id: userId } = req.user;
-    const file = req.file;
-
-    if (!file) return res.status(400).json({ error: 'Arquivo não enviado.' });
-
-    const { data: companion } = await supabase
-      .from('companion_profiles')
-      .select('id')
-      .eq('user_id', userId)
-      .single();
-
-    if (!companion) return res.status(404).json({ error: 'Perfil não encontrado.' });
-
-    const ext = file.originalname.split('.').pop() || 'jpg';
-    const path = `photos/${companion.id}/profile_${Date.now()}.${ext}`;
-
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from('companion-photos')
-      .upload(path, file.buffer, { contentType: file.mimetype, upsert: true });
-
-    if (uploadError) return res.status(500).json({ error: 'Erro no upload da foto.' });
-
-    const { error: dbError } = await supabaseAdmin
-      .from('companion_profiles')
-      .update({ profile_photo_url: path })
-      .eq('id', companion.id);
-
-    if (dbError) return res.status(400).json({ error: dbError.message });
-
-    res.json({ message: 'Foto de perfil atualizada.', path });
   } catch (err) {
     next(err);
   }

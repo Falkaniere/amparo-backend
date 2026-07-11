@@ -1,4 +1,4 @@
-jest.mock('../../utils/supabase', () => ({
+jest.mock('#utils/supabase', () => ({
   supabase: {
     auth: {
       signUp: jest.fn(),
@@ -23,8 +23,8 @@ jest.mock('../../utils/supabase', () => ({
 
 const request = require('supertest');
 const express = require('express');
-const { supabase } = require('../../utils/supabase');
-const authRoutes = require('../../routes/auth');
+const { supabase } = require('#utils/supabase');
+const authRoutes = require('#routes/auth');
 
 const app = express();
 app.use(express.json());

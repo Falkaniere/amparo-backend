@@ -4,15 +4,15 @@ const helmet  = require('helmet');
 const cors    = require('cors');
 const rateLimit = require('express-rate-limit');
 
-const authRoutes         = require('./routes/auth');
-const profileRoutes      = require('./routes/profiles');
-const companionRoutes    = require('./routes/companions');
-const requestRoutes      = require('./routes/requests');
-const paymentRoutes      = require('./routes/payments');
-const reviewRoutes       = require('./routes/reviews');
-const messageRoutes      = require('./routes/messages');
-const adminRoutes        = require('./routes/admin');
-const adminAuth          = require('./middleware/adminAuth');
+const authRoutes         = require('#routes/auth');
+const profileRoutes      = require('#routes/profiles');
+const companionRoutes    = require('#routes/companions');
+const requestRoutes      = require('#routes/requests');
+const paymentRoutes      = require('#routes/payments');
+const reviewRoutes       = require('#routes/reviews');
+const messageRoutes      = require('#routes/messages');
+const adminRoutes        = require('#routes/admin');
+const adminAuth          = require('#middleware/adminAuth');
 
 const app = express();
 
@@ -26,6 +26,8 @@ const limiter = rateLimit({
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
+  // Webhooks de pagamento não podem ser limitados: perderíamos confirmações.
+  skip: (req) => req.path === '/payments/webhook',
   message: { error: 'Muitas requisições. Tente novamente em 1 minuto.' }
 });
 app.use(limiter);

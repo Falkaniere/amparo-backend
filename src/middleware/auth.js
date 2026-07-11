@@ -1,4 +1,4 @@
-const { supabase } = require('../utils/supabase');
+const { supabase } = require('#utils/supabase');
 
 // Valida o JWT do Supabase e injeta req.user
 async function authMiddleware(req, res, next) {

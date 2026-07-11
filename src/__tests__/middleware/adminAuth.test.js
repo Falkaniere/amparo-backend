@@ -1,4 +1,4 @@
-const adminAuth = require('../../middleware/adminAuth');
+const adminAuth = require('#middleware/adminAuth');
 
 function makeRes() {
   const res = {};

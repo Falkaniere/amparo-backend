@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { supabase, supabaseAdmin } = require('../utils/supabase');
-const { authMiddleware } = require('../middleware/auth');
+const { supabase, supabaseAdmin } = require('#utils/supabase');
+const { authMiddleware } = require('#middleware/auth');
 
 // ─── POST /auth/register ────────────────────────────────────────────────────
 router.post('/register', async (req, res, next) => {
@@ -31,7 +31,10 @@ router.post('/register', async (req, res, next) => {
     const userId = data.user.id;
 
     if (role === 'family') {
-      await supabaseAdmin.from('family_profiles').insert({ user_id: userId });
+      const { error: fpError } = await supabaseAdmin
+        .from('family_profiles')
+        .insert({ user_id: userId });
+      if (fpError) return res.status(400).json({ error: fpError.message });
     } else {
       const { error: cpError } = await supabaseAdmin
         .from('companion_profiles')

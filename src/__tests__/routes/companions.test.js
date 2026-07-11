@@ -1,4 +1,4 @@
-jest.mock('../../utils/supabase', () => ({
+jest.mock('#utils/supabase', () => ({
   supabase: {
     auth: { getUser: jest.fn() },
     from: jest.fn(),
@@ -7,7 +7,7 @@ jest.mock('../../utils/supabase', () => ({
   supabaseAdmin: {},
 }));
 
-jest.mock('../../middleware/auth', () => ({
+jest.mock('#middleware/auth', () => ({
   authMiddleware: (req, _res, next) => {
     req.user = { id: 'user-123' };
     next();
@@ -17,8 +17,8 @@ jest.mock('../../middleware/auth', () => ({
 
 const request = require('supertest');
 const express = require('express');
-const { supabase } = require('../../utils/supabase');
-const companionsRoutes = require('../../routes/companions');
+const { supabase } = require('#utils/supabase');
+const companionsRoutes = require('#routes/companions');
 
 const app = express();
 app.use(express.json());

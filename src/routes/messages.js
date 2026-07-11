@@ -1,11 +1,30 @@
 const express = require('express');
 const router  = express.Router();
-const { supabase, supabaseAdmin } = require('../utils/supabase');
-const { authMiddleware } = require('../middleware/auth');
+const { supabase, supabaseAdmin } = require('#utils/supabase');
+const { authMiddleware } = require('#middleware/auth');
+
+// Verifica se o usuário é participante (família ou acompanhante) do serviço.
+async function isParticipant(requestId, userId) {
+  const { data } = await supabaseAdmin
+    .from('service_requests')
+    .select('family_profiles(user_id), companion_profiles(user_id)')
+    .eq('id', requestId)
+    .single();
+
+  if (!data) return false;
+  return [
+    data.family_profiles?.user_id,
+    data.companion_profiles?.user_id,
+  ].includes(userId);
+}
 
 // ─── GET /messages/:request_id ──────────────────────────────
 router.get('/:request_id', authMiddleware, async (req, res, next) => {
   try {
+    if (!(await isParticipant(req.params.request_id, req.user.id))) {
+      return res.status(403).json({ error: 'Acesso negado a esta conversa.' });
+    }
+
     const { data, error } = await supabase
       .from('messages')
       .select('*')
@@ -28,6 +47,10 @@ router.post('/', authMiddleware, async (req, res, next) => {
 
     if (!content?.trim()) {
       return res.status(400).json({ error: 'Mensagem não pode estar vazia.' });
+    }
+
+    if (!(await isParticipant(request_id, userId))) {
+      return res.status(403).json({ error: 'Acesso negado a esta conversa.' });
     }
 
     const { data, error } = await supabaseAdmin
